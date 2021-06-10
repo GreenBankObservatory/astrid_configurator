@@ -34,12 +34,26 @@
     {value: "Rcvr40_52", label: "Q-band"},
     {value: "Rcvr68_92", label: "W-band"},
   ]
-  const { form, isValid, data, errors, setFields, setField } = createForm({
-    onSubmit: (data) => console.log("Submit", data, "isvaliid", $isValid),
+  const { form, isValid, data, errors, setFields, reset } = createForm({
+    onSubmit: (data) => console.log("Submit", data),
     onError: error => error,
     extend: [validator, reporter({ single: true })],
     validateSchema: schema,
-    initialValues: {rx: "", noisecal: "", pol: ""}
+    initialValues: {
+      conf_name: "",
+      rx: "",
+      nwin: null,
+      rest_freq: null,
+      bandwidth: null,
+      nchan: null,
+      tint: null,
+      vframe: "",
+      framevdef: "",
+      use_cal: false,
+      noisecal: "",
+      pol: "",
+      xcor: false,
+    }
   });
 
   function genDummyData() {
@@ -58,26 +72,9 @@
       pol: "linear",
       xcor: true
     });
-    setField("rx", "Rcvr_340")
-  }
-
-  function clearData() {
-    setFields({
-      conf_name: "",
-      rx: "",
-      nwin: "",
-      rest_freq: "",
-      bandwidth: "",
-      nchan: "",
-      tint: "",
-      vframe: "",
-      framevdef: "",
-      use_cal: false,
-      noisecal: "",
-      pol: "",
-      xcor: false,
-
-    })
+    // TODO: Is there a away to avoid doing this manually?
+    let element = document.getElementById("rx-select");
+    element.value = "Rcvr_340";
   }
 
   function genConfigString(data) {
@@ -124,10 +121,10 @@
         <div class="row mb-1">
           <label class="col-form-label col-sm-6 pt-0" for="rx">Receiver</label>
           <div class="col-sm-6">
-            <select class="form-select" name="rx" aria-label="Select receiver">
+            <select class="form-select" id="rx-select" name="rx" aria-label="Select receiver">
                 <option value="">Select Receiver</option>
                 {#each receivers as receiver}
-                <option selected="{receiver.value === $data.receiver}" value="{receiver.value}">{receiver.label}</option>
+                <option value="{receiver.value}">{receiver.label}</option>
               {/each}
             </select>
             <div class="error-msg" id="rx-validation" data-felte-reporter-dom-for="rx" />
@@ -262,7 +259,7 @@
         </div>
         
         <button type="submit" class="btn btn-primary">Submit</button>
-        <button type="reset" class="btn btn-warning" on:click={clearData}>Clear</button>
+        <button type="reset" class="btn btn-warning" on:click={reset}>Clear</button>
         <button type="button" class="btn btn-info" on:click={genDummyData}>Insert Dummy Data</button>
       </form>
     </div>
