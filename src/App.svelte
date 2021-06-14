@@ -3,7 +3,6 @@
   import reporter from "@felte/reporter-dom";
   import { validator } from "@felte/validator-yup";
   import * as yup from "yup";
-
   const schema = yup.object({
     conf_name: yup.string().required(),
     rx: yup.string().ensure().required(),
@@ -23,7 +22,6 @@
     pol: yup.string().required(),
     xcor: yup.boolean().typeError("Required").required(),
   });
-
   const receivers = [
     { value: "Rcvr_340", label: "P-band" },
     { value: "Rcvr_800", label: "800 MHz" },
@@ -38,36 +36,77 @@
     { value: "Rcvr40_52", label: "Q-band" },
     { value: "Rcvr68_92", label: "W-band" },
   ];
-  const { form, isValid, data, errors, setFields, reset } = createForm({
-    onSubmit: (data) => console.log("Submit", data),
-    onError: (error) => error,
-    extend: [validator, reporter({ single: true })],
-    validateSchema: schema,
-    initialValues: {
-      conf_name: "",
-      rx: "",
-      nwin: null,
-      rest_freq: null,
-      bandwidth: null,
-      nchan: null,
-      tint: null,
-      vframe: "",
-      framevdef: "",
-      use_cal: false,
-      noisecal: "",
-      pol: "",
-      xcor: false,
-    },
-  });
+  // mode, bandwidth, # channels
+  const vegasModes = [
+    [1, 1500, 1024],
+    [2, 1500, 16384],
+    [3, 1080, 16385],
+    [4, 187.5, 32768],
+    [5, 187.5, 65536],
+    [6, 187.5, 131072],
+    [7, 100, 32768],
+    [8, 100, 65536],
+    [9, 100, 131072],
+    [10, 23.44, 32768],
+    [11, 23.44, 65536],
+    [12, 23.44, 131072],
+    [13, 23.44, 262144],
+    [14, 23.44, 524288],
+    [15, 11.72, 32768],
+    [16, 11.72, 65536],
+    [17, 11.72, 131072],
+    [18, 11.72, 262144],
+    [19, 11.72, 524288],
+  ];
+  const bandwidths = [
+    { value: 1500, label: "1500 MHz" },
+    { value: 1080, label: "1080 MHz" },
+    { value: 187.5, label: "187.5 MHz" },
+    { value: 100, label: "100 MHz" },
+    { value: 23.44, label: "23.44 MHz" },
+    { value: 11.72, label: "11.72 MHz" },
+  ];
 
+  let channels = [];
+  $: {
+    channels = vegasModes
+      .filter(([mode, bw, nchan]) => Number(bw) === Number($data.bandwidth))
+      .map(([mode, bw, nchan]) => ({
+        value: nchan,
+        label: nchan,
+      }));
+    channels.length && setField("nchan", channels[0].value);
+  }
+  const { form, isValid, data, errors, setField, setFields, reset } =
+    createForm({
+      onSubmit: (data) => console.log("Submit", data),
+      onError: (error) => error,
+      extend: [validator, reporter({ single: true })],
+      validateSchema: schema,
+      initialValues: {
+        conf_name: "",
+        rx: "",
+        nwin: null,
+        rest_freq: null,
+        bandwidth: null,
+        nchan: null,
+        tint: null,
+        vframe: "",
+        framevdef: "",
+        use_cal: false,
+        noisecal: "",
+        pol: "",
+        xcor: false,
+      },
+    });
   function genDummyData() {
-    setFields({
+    const _dummyData = {
       conf_name: "dummy inputs",
       rx: "Rcvr_340",
       nwin: 1,
       rest_freq: 1,
-      bandwidth: 1,
-      nchan: 1,
+      bandwidth: 1080,
+      nchan: 16385,
       tint: 1,
       vframe: "lsrk",
       framevdef: "radio",
@@ -75,14 +114,15 @@
       noisecal: "high",
       pol: "linear",
       xcor: true,
-    });
+    };
+    setFields(_dummyData);
     // TODO: Is there a away to avoid doing this manually?
-    let element = document.getElementById("rx-select");
-    element.value = "Rcvr_340";
+    document.getElementById("rx-select").value = _dummyData.rx;
+    document.getElementById("bandwidth-select").value = _dummyData.bandwidth;
+    document.getElementById("nchan-select").value = _dummyData.nchan;
   }
-
   function genConfigString(data) {
-    return `Configure("""
+    return `${data.conf_name.replace(" ", "_")}="""
   receiver="${data.rx}",
   obstype="Spectroscopy",
   backend="VEGAS",
@@ -102,7 +142,7 @@
   pol="${data.pol}",
   xcor=${data.xcor ? "True" : "False"},
   notchfilter="In",
-)"""`;
+"""`;
   }
 </script>
 
@@ -187,16 +227,21 @@
         </div>
 
         <div class="row mb-1">
-          <label class="col-sm-6 col-form-label" for="bandwidth"
-            >Bandwidth</label
+          <label class="col-form-label col-sm-6 pt-0" for="bandwidth"
+            >Bandwidth (MHz)</label
           >
           <div class="col-sm-6">
-            <input
-              class="form-control"
-              type="text"
-              inputmode="numeric"
+            <select
+              class="form-select"
+              id="bandwidth-select"
               name="bandwidth"
-            />
+              aria-label="Select number of bandwidths"
+            >
+              <option value="">Select Bandwidth</option>
+              {#each bandwidths as bandwidth}
+                <option value={bandwidth.value}>{bandwidth.label}</option>
+              {/each}
+            </select>
             <div
               class="error-msg"
               id="bandwidth-validation"
@@ -206,16 +251,21 @@
         </div>
 
         <div class="row mb-1">
-          <label class="col-sm-6 col-form-label" for="nchan"
-            ># of channels</label
+          <label class="col-form-label col-sm-6 pt-0" for="nchan"
+            ># Channels</label
           >
           <div class="col-sm-6">
-            <input
-              class="form-control"
-              type="text"
-              inputmode="numeric"
+            <select
+              class="form-select"
+              id="nchan-select"
               name="nchan"
-            />
+              aria-label="Select number of channels"
+              disabled={!Boolean($data.bandwidth)}
+            >
+              {#each channels as channel}
+                <option value={channel.value}>{channel.label}</option>
+              {/each}
+            </select>
             <div
               class="error-msg"
               id="nchan-validation"
