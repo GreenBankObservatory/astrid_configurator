@@ -3,11 +3,39 @@
   import reporter from "@felte/reporter-dom";
   import { validator } from "@felte/validator-yup";
   import * as yup from "yup";
+  
+  import ConfigTextField from './ConfigTextField.svelte';
+  import ConfigNumberField from './ConfigNumberField.svelte';
+  import ConfigBooleanField from './ConfigBooleanField.svelte';
+  import ConfigRadioField from './ConfigRadioField.svelte';
+  import ConfigSelectField from './ConfigSelectField.svelte';
+  
+  import { Popover } from 'sveltestrap';
+  
+  function validateRestFreq(value, context) {
+    console.log("validating", value)
+    try {
+      value.split(",").forEach((freq) => {
+        if (!freq || isNaN(Number(freq))) {
+          console.log("freq", freq, "is not an number")
+          throw Error("bad!");
+        }
+      });
+    } catch (error) {
+      return false;
+    }
+
+    return true;
+  }
   const schema = yup.object({
     conf_name: yup.string().required(),
-    rx: yup.string().ensure().required(),
+    receiver: yup.string().ensure().required(),
     nwin: yup.number().typeError("Must be a positive number").positive(),
-    rest_freq: yup.number().typeError("Must be a positive number").positive(),
+    rest_freq: yup.string().ensure().test({
+      name: "rest_freq",
+      message: "Must be comma-separated numbers, e.g. '1.0,2,3.0'",
+      test: validateRestFreq
+    }),
     bandwidth: yup.number().typeError("Must be a positive number").positive(),
     nchan: yup
       .number()
@@ -36,8 +64,8 @@
     { value: "Rcvr40_52", label: "Q-band" },
     { value: "Rcvr68_92", label: "W-band" },
   ];
-  // mode, bandwidth, # channels
   const vegasModes = [
+    // mode, bandwidth, # channels
     [1, 1500, 1024],
     [2, 1500, 16384],
     [3, 1080, 16385],
@@ -67,7 +95,28 @@
     { value: 11.72, label: "11.72 MHz" },
   ];
 
+  const noisecalItems = [
+    { name: "High", value: "high"},
+    {name: "Low", value: "low"}
+  ]
+
+  const polItems = [
+    { name: "Linear", value: "Linear"},
+    {name: "Circular", value: "Circular"}
+  ]
+
+  const velocityRefs = [
+    { name: "Helio", value: "helio" },
+    { name: "Bary", value:"bary"},
+  ];
+  
+  const framevdefItems = [
+    { name: "Optical", value: "optical" },
+    { name: "Radio", value:"radio"},
+  ];
+  
   let channels = [];
+  // Whenever the bandwidth field changes, update the available channels
   $: {
     channels = vegasModes
       .filter(([mode, bw, nchan]) => Number(bw) === Number($data.bandwidth))
@@ -75,74 +124,134 @@
         value: nchan,
         label: nchan,
       }));
-    channels.length && setField("nchan", channels[0].value);
+  }
+
+  function cleanBoolean(value: boolean): string {
+    return value ? "True" : "False";
+  }
+  function cleanString(value: string): string {
+    return `'${value}'`;
+  }
+  function cleanNumber(value: number): string {
+    return JSON.stringify(value);
+  }
+  function cleanButActuallyDoNothing(value: string): string {
+    return value
+  }
+  const initialFormValues = {
+    conf_name: "",
+    receiver: "",
+    nwin: null,
+    rest_freq: null,
+    bandwidth: null,
+    nchan: null,
+    tint: null,
+    vframe: "",
+    framevdef: "",
+    use_cal: false,
+    noisecal: "",
+    pol: "",
+    xcor: false,
+    "vegas.vpol": "cross",
+    obstype: "Spectroscopy",
+    backend: "VEGAS",
+    deltafreq: 0.0,
+    swmode: "tp",
+    swtype: "none",
+    swper: 1.0,
+    swfreq: "0.0,0.0",
+    notchfilter: "In",
+  }
+
+  const cleaners = {
+    conf_name: cleanString,
+    receiver: cleanString,
+    nwin: cleanNumber,
+    rest_freq: cleanButActuallyDoNothing,
+    bandwidth: cleanNumber,
+    nchan: cleanNumber,
+    tint: cleanNumber,
+    vframe: cleanString,
+    framevdef: cleanString,
+    use_cal: cleanBoolean,
+    noisecal: cleanString,
+    pol: cleanString,
+    xcor: cleanBoolean,
+    "vegas.vpol": cleanString,
+    obstype: cleanString,
+    backend: cleanString,
+    deltafreq: cleanNumber,
+    swmode: cleanString,
+    swtype: cleanString,
+    swper: cleanNumber,
+    swfreq: cleanButActuallyDoNothing,
+    notchfilter: cleanString,
   }
   const { form, isValid, data, errors, setField, setFields, reset } =
     createForm({
       onSubmit: (data) => console.log("Submit", data),
-      onError: (error) => error,
       extend: [validator, reporter({ single: true })],
       validateSchema: schema,
-      initialValues: {
-        conf_name: "",
-        rx: "",
-        nwin: null,
-        rest_freq: null,
-        bandwidth: null,
-        nchan: null,
-        tint: null,
-        vframe: "",
-        framevdef: "",
-        use_cal: false,
-        noisecal: "",
-        pol: "",
-        xcor: false,
-      },
+      initialValues: initialFormValues,
     });
+
+  function handleCopyToClipboard(text: string, message?: string): void {
+    const promise = navigator.clipboard.writeText(text);
+    promise.then(
+      () => (console.log('Copied to clipboard')),
+      () => console.error('Failed to copy to clipboard')
+    );
+  }
+
   function genDummyData() {
-    const _dummyData = {
+      const _dummyData = {
+      ...initialFormValues,
       conf_name: "dummy inputs",
-      rx: "Rcvr_340",
+      receiver: "Rcvr_340",
       nwin: 1,
       rest_freq: 1,
       bandwidth: 1080,
       nchan: 16385,
       tint: 1,
-      vframe: "lsrk",
+      vframe: "bary",
       framevdef: "radio",
       use_cal: false,
       noisecal: "high",
-      pol: "linear",
+      pol: "Linear",
       xcor: true,
     };
     setFields(_dummyData);
     // TODO: Is there a away to avoid doing this manually?
-    document.getElementById("rx-select").value = _dummyData.rx;
+    document.getElementById("receiver-select").value = _dummyData.receiver;
     document.getElementById("bandwidth-select").value = _dummyData.bandwidth;
-    document.getElementById("nchan-select").value = _dummyData.nchan;
+    // TODO: This doesn't work; perhaps some race condition? Works if you click generate button twice
+    console.log("channels", channels)
+    console.log("Setting nchan value to", JSON.stringify(_dummyData.nchan))
+    document.getElementById("nchan-select").value = "16385";
   }
   function genConfigString(data) {
-    return `${data.conf_name.replace(" ", "_")}="""
-  receiver="${data.rx}",
-  obstype="Spectroscopy",
-  backend="VEGAS",
-  nwin=${data.nwin},
-  restfreq=${data.rest_freq},
-  deltafreq=0.0,
-  bandwidth=${data.bandwidth},
-  nchan=${data.nchan},
-  swmode="tp",
-  swtype=None ,
-  swper=1.0,
-  swfreq="0,0",
-  tint=${data.tint},
-  vframe="${data.vframe}",
-  framevdef="${data.framevdef}",
-  noisecal="${data.noisecal}",
-  pol="${data.pol}",
-  xcor=${data.xcor ? "True" : "False"},
-  notchfilter="In",
-"""`;
+    const normalizedConfName = data.conf_name.replace(" ", "_")
+    const lines = [];
+    Object.entries(data).sort(([aKey], [bKey]) => aKey.localeCompare(bKey)).forEach(([key, value]) => {
+      // TODO: break this logic out into a function, or something else sensible. I guess we'll need some sort
+      //       of dependency tree at some point
+      // Do not add conf_name to config
+      // Do not add notchfilter unless receiver is L-Band
+      if (key !== "conf_name" && !(key === "notchfilter" && data["receiver"] !== "Rcvr1_2")) {
+        lines.push(`  "${key}": ${cleaners[key](value)}`);
+      }
+    });
+    return `${normalizedConfName}="""\n${lines.join("\n")}\n"""`;
+  }
+
+  let formData = [];
+  $: {
+    formData = Object.entries($data).map(([key, value]) => ({[key]: value, "type": typeof(value)}))
+  }
+
+  let finalConfigString = "";
+  $: {
+    finalConfigString = genConfigString($data)
   }
 </script>
 
@@ -152,308 +261,33 @@
   <div class="row">
     <div class="col-lg-6">
       <form use:form>
-        <div class="row mb-1">
-          <label class="col-sm-6 col-form-label" for="conf_name"
-            >Name of the Config section</label
-          >
-          <div class="col-sm-6">
-            <input class="form-control" type="text" name="conf_name" />
-            <div
-              class="error-msg"
-              id="conf_name-validation"
-              data-felte-reporter-dom-for="conf_name"
-            />
-          </div>
-        </div>
-
-        <div class="row mb-1">
-          <label class="col-form-label col-sm-6 pt-0" for="rx">Receiver</label>
-          <div class="col-sm-6">
-            <select
-              class="form-select"
-              id="rx-select"
-              name="rx"
-              aria-label="Select receiver"
-            >
-              <option value="">Select Receiver</option>
-              {#each receivers as receiver}
-                <option value={receiver.value}>{receiver.label}</option>
-              {/each}
-            </select>
-            <div
-              class="error-msg"
-              id="rx-validation"
-              data-felte-reporter-dom-for="rx"
-            />
-          </div>
-        </div>
-
-        <div class="row mb-1">
-          <label class="col-sm-6 col-form-label" for="nwin"
-            ># of spectral windows</label
-          >
-          <div class="col-sm-6">
-            <input
-              class="form-control"
-              type="text"
-              inputmode="numeric"
-              name="nwin"
-            />
-            <div
-              class="error-msg"
-              id="nwin-validation"
-              data-felte-reporter-dom-for="nwin"
-            />
-          </div>
-        </div>
-
-        <div class="row mb-1">
-          <label class="col-sm-6 col-form-label" for="rest_freq"
-            >Rest Frequency</label
-          >
-          <div class="col-sm-6">
-            <input
-              class="form-control"
-              type="text"
-              inputmode="numeric"
-              name="rest_freq"
-            />
-            <div
-              class="error-msg"
-              id="rest_freq-validation"
-              data-felte-reporter-dom-for="rest_freq"
-            />
-          </div>
-        </div>
-
-        <div class="row mb-1">
-          <label class="col-form-label col-sm-6 pt-0" for="bandwidth"
-            >Bandwidth (MHz)</label
-          >
-          <div class="col-sm-6">
-            <select
-              class="form-select"
-              id="bandwidth-select"
-              name="bandwidth"
-              aria-label="Select number of bandwidths"
-            >
-              <option value="">Select Bandwidth</option>
-              {#each bandwidths as bandwidth}
-                <option value={bandwidth.value}>{bandwidth.label}</option>
-              {/each}
-            </select>
-            <div
-              class="error-msg"
-              id="bandwidth-validation"
-              data-felte-reporter-dom-for="bandwidth"
-            />
-          </div>
-        </div>
-
-        <div class="row mb-1">
-          <label class="col-form-label col-sm-6 pt-0" for="nchan"
-            ># Channels</label
-          >
-          <div class="col-sm-6">
-            <select
-              class="form-select"
-              id="nchan-select"
-              name="nchan"
-              aria-label="Select number of channels"
-              disabled={!Boolean($data.bandwidth)}
-            >
-              {#each channels as channel}
-                <option value={channel.value}>{channel.label}</option>
-              {/each}
-            </select>
-            <div
-              class="error-msg"
-              id="nchan-validation"
-              data-felte-reporter-dom-for="nchan"
-            />
-          </div>
-        </div>
-
-        <div class="row mb-1">
-          <label class="col-sm-6 col-form-label" for="tint"
-            >Integration Time</label
-          >
-          <div class="col-sm-6">
-            <input
-              class="form-control"
-              type="text"
-              inputmode="numeric"
-              name="tint"
-            />
-            <div
-              class="error-msg"
-              id="tint-validation"
-              data-felte-reporter-dom-for="tint"
-            />
-          </div>
-        </div>
-
-        <fieldset class="row mb-1">
-          <legend class="col-form-label col-sm-6 pt-0"
-            >Velocity reference</legend
-          >
-          <div class="col-sm-6">
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="vframe"
-                id="vframe_lsrk"
-                value="lsrk"
-              />
-              <label class="form-check-label" for="vframe_lsrk"> Lsrk </label>
-            </div>
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="vframe"
-                id="vframe_helio"
-                value="helio"
-              />
-              <label class="form-check-label" for="vframe_helio"> Helio </label>
-            </div>
-            <div
-              class="error-msg"
-              id="vframe-validation"
-              data-felte-reporter-dom-for="vframe"
-            />
-          </div>
-        </fieldset>
-
-        <fieldset class="row mb-1">
-          <legend class="col-form-label col-sm-6 pt-0"
-            >Specify velocity frame for Doppler shift</legend
-          >
-          <div class="col-sm-6">
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="framevdef"
-                id="framevdef_lsrk"
-                value="optical"
-              />
-              <label class="form-check-label" for="framevdef_optical">
-                Optical
-              </label>
-            </div>
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="framevdef"
-                id="framevdef_radio"
-                value="radio"
-              />
-              <label class="form-check-label" for="framevdef_radio">
-                Radio
-              </label>
-            </div>
-            <div
-              class="error-msg"
-              id="framevdef-validation"
-              data-felte-reporter-dom-for="framevdef"
-            />
-          </div>
-        </fieldset>
-
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" name="use_cal" />
-          <label class="form-check-label" for="use_cal"
-            >Use the noise diode?</label
-          >
-        </div>
-
+        <ConfigTextField label="Name of the Config section" name="conf_name" />
+        <ConfigSelectField label="Receiver" name="receiver" items={receivers}/>
+        <ConfigNumberField label="# of spectral windows" name="nwin" />
+        <ConfigNumberField label="Rest Frequency" name="rest_freq" />
+        <ConfigSelectField label="Bandwidth (MHz)" name="bandwidth" items={bandwidths}/>
+        <ConfigSelectField label="# Channels" name="nchan" items={channels} disabled={!Boolean($data.bandwidth)} />
+        <ConfigNumberField label="Integration Time" name="tint" />
+        <ConfigRadioField label="Velocity reference" name="vframe" items={velocityRefs} />
+        <ConfigRadioField label="Specify velocity frame for Doppler shift" name="framevdef" items={framevdefItems} />
+        <ConfigBooleanField label="Use the noise diode??" name="use_cal" />
         {#if $data.use_cal}
-          <fieldset class="row mb-1">
-            <legend class="col-form-label col-sm-6 pt-0"
-              >Strength of the noise diode</legend
-            >
-            <div class="col-sm-6">
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="radio"
-                  name="noisecal"
-                  id="noisecal_high"
-                  value="high"
-                />
-                <label class="form-check-label" for="noisecal_high">
-                  High
-                </label>
-              </div>
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="radio"
-                  name="noisecal"
-                  id="noisecal_low"
-                  value="low"
-                />
-                <label class="form-check-label" for="noisecal_low"> Low </label>
-              </div>
-              <div
-                class="error-msg"
-                id="noisecal-validation"
-                data-felte-reporter-dom-for="noisecal"
-              />
-            </div>
-          </fieldset>
+          <ConfigRadioField label="Strength of the noise diode" name="noisecal" items={noisecalItems} />
         {/if}
-        <fieldset class="row mb-1">
-          <legend class="col-form-label col-sm-6 pt-0"
-            >Specify polarization state</legend
-          >
-          <div class="col-sm-6">
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="pol"
-                id="pol_linear"
-                value="linear"
-              />
-              <label class="form-check-label" for="pol_linear"> Linear </label>
-            </div>
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="pol"
-                id="pol_circular"
-                value="circular"
-              />
-              <label class="form-check-label" for="pol_circular">
-                Circular
-              </label>
-            </div>
-            <div
-              class="error-msg"
-              id="pol-validation"
-              data-felte-reporter-dom-for="pol"
-            />
-          </div>
-        </fieldset>
-
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" name="xcor" />
-          <label class="form-check-label" for="xcor"
-            >Record Cross polarization as well?</label
-          >
-        </div>
+        <ConfigRadioField label="Specify polarization state" name="pol" items={polItems} />
+        <ConfigBooleanField label="Record Cross polarization as well?" name="xcor" />
+        <ConfigTextField label="Observation Type" name="obstype" hidden />
+        <ConfigTextField label="Backend." name="backend" hidden />
+        <ConfigNumberField label="Delta Freq." name="deltafreq" hidden />
+        <ConfigTextField label="Switching Mode" name="swmode" hidden />
+        <ConfigTextField label="Switching Type" name="swtype" hidden />
+        <ConfigNumberField label="Switching Period" name="swper" hidden />
+        <ConfigTextField label="Switching Freq." name="swfreq" hidden />
+        <ConfigTextField label="Notch Filter" name="notchfilter" hidden />
 
         <button type="submit" class="btn btn-primary">Submit</button>
         <button type="reset" class="btn btn-warning" on:click={reset}
           >Clear</button
-        >
-        <button type="button" class="btn btn-info" on:click={genDummyData}
-          >Insert Dummy Data</button
         >
       </form>
     </div>
@@ -472,12 +306,12 @@
       <div class="row">
         <h6>Config String</h6>
         {#if $isValid}
-          <code><pre>{genConfigString($data)}</pre></code>
+          <code><pre>{finalConfigString}</pre></code>
+          <a class="btn btn-primary" type="button" tabindex="0" id="copy-script-to-clipboard-btn" on:click={() => handleCopyToClipboard(finalConfigString)}>Copy to Clipboard</a>
+          <Popover target="copy-script-to-clipboard-btn" placement="top" dismissible> Done! </Popover>
         {:else}
-          <p on:click={genDummyData} style="cursor: pointer">
-            Complete the form to generate a config string (or click here to use
-            fake data)
-          </p>
+          <p> Complete the form to generate a config string </p>
+          <button class="btn btn-info" id="dummy-data-btn" on:click={genDummyData}>Generate Dummy Data</button>
         {/if}
       </div>
     </div>
@@ -485,7 +319,7 @@
 </main>
 
 <style>
-  .error-msg {
+  :global(.error-msg) {
     width: 100%;
     margin-top: 0.25rem;
     font-size: 0.875em;
