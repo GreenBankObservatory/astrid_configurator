@@ -141,26 +141,27 @@
   const initialFormValues = {
     conf_name: "",
     receiver: "",
+    obstype: "Spectroscopy",
+    backend: "VEGAS",
     nwin: null,
     rest_freq: null,
+    deltafreq: 0.0,
+    dopplertrackfreq: 0.0,
     bandwidth: null,
     nchan: null,
+    swmode: "tp",
+    swtype: "none",
+    swper: 1.0,
+    swfreq: "0.0,0.0",
     tint: null,
     vframe: "",
     framevdef: "",
     use_cal: false,
     noisecal: "",
     pol: "",
-    xcor: false,
     "vegas.vpol": "cross",
-    obstype: "Spectroscopy",
-    backend: "VEGAS",
-    deltafreq: 0.0,
-    swmode: "tp",
-    swtype: "none",
-    swper: 1.0,
-    swfreq: "0.0,0.0",
     notchfilter: "In",
+    xcor: false,
   }
 
   const cleaners = {
@@ -186,6 +187,7 @@
     swper: cleanNumber,
     swfreq: cleanButActuallyDoNothing,
     notchfilter: cleanString,
+    dopplertrackfreq: cleanNumber,
   }
   const { form, isValid, data, errors, setField, setFields, reset } =
     createForm({
@@ -232,7 +234,7 @@
   function genConfigString(data) {
     const normalizedConfName = data.conf_name.replace(" ", "_")
     const lines = [];
-    Object.entries(data).sort(([aKey], [bKey]) => aKey.localeCompare(bKey)).forEach(([key, value]) => {
+    Object.entries(data).forEach(([key, value]) => {
       // TODO: break this logic out into a function, or something else sensible. I guess we'll need some sort
       //       of dependency tree at some point
       // Do not add conf_name to config
@@ -270,12 +272,12 @@
         <ConfigNumberField label="Integration Time" name="tint" />
         <ConfigRadioField label="Velocity reference" name="vframe" items={velocityRefs} />
         <ConfigRadioField label="Specify velocity frame for Doppler shift" name="framevdef" items={framevdefItems} />
-        <ConfigBooleanField label="Use the noise diode??" name="use_cal" />
+        <ConfigBooleanField label="Use the noise diode" name="use_cal" />
         {#if $data.use_cal}
           <ConfigRadioField label="Strength of the noise diode" name="noisecal" items={noisecalItems} />
         {/if}
         <ConfigRadioField label="Specify polarization state" name="pol" items={polItems} />
-        <ConfigBooleanField label="Record Cross polarization as well?" name="xcor" />
+        <ConfigBooleanField label="Record Cross polarization" name="xcor" />
         <ConfigTextField label="Observation Type" name="obstype" hidden />
         <ConfigTextField label="Backend." name="backend" hidden />
         <ConfigNumberField label="Delta Freq." name="deltafreq" hidden />
