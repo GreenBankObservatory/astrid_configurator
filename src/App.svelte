@@ -1,23 +1,32 @@
+<style>
+  :global(.error-msg) {
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+    color: #dc3545;
+  }
+</style>
+
 <script lang="ts">
   import { createForm } from "felte";
   import reporter from "@felte/reporter-dom";
   import { validator } from "@felte/validator-yup";
   import * as yup from "yup";
-  
-  import ConfigTextField from './ConfigTextField.svelte';
-  import ConfigNumberField from './ConfigNumberField.svelte';
-  import ConfigBooleanField from './ConfigBooleanField.svelte';
-  import ConfigRadioField from './ConfigRadioField.svelte';
-  import ConfigSelectField from './ConfigSelectField.svelte';
-  
-  import { Popover } from 'sveltestrap';
-  
+
+  import ConfigTextField from "./ConfigTextField.svelte";
+  import ConfigNumberField from "./ConfigNumberField.svelte";
+  import ConfigBooleanField from "./ConfigBooleanField.svelte";
+  import ConfigRadioField from "./ConfigRadioField.svelte";
+  import ConfigSelectField from "./ConfigSelectField.svelte";
+
+  import { Popover } from "sveltestrap";
+
   function validateRestFreq(value, context) {
-    console.log("validating", value)
+    console.log("validating", value);
     try {
       value.split(",").forEach((freq) => {
         if (!freq || isNaN(Number(freq))) {
-          console.log("freq", freq, "is not an number")
+          console.log("freq", freq, "is not an number");
           throw Error("bad!");
         }
       });
@@ -34,7 +43,7 @@
     rest_freq: yup.string().ensure().test({
       name: "rest_freq",
       message: "Must be comma-separated numbers, e.g. '1.0,2,3.0'",
-      test: validateRestFreq
+      test: validateRestFreq,
     }),
     bandwidth: yup.number().typeError("Must be a positive number").positive(),
     nchan: yup
@@ -96,25 +105,25 @@
   ];
 
   const noisecalItems = [
-    { name: "High", value: "high"},
-    {name: "Low", value: "low"}
-  ]
+    { name: "High", value: "high" },
+    { name: "Low", value: "low" },
+  ];
 
   const polItems = [
-    { name: "Linear", value: "Linear"},
-    {name: "Circular", value: "Circular"}
-  ]
+    { name: "Linear", value: "Linear" },
+    { name: "Circular", value: "Circular" },
+  ];
 
   const velocityRefs = [
     { name: "Helio", value: "helio" },
-    { name: "Bary", value:"bary"},
+    { name: "Bary", value: "bary" },
   ];
-  
+
   const framevdefItems = [
     { name: "Optical", value: "optical" },
-    { name: "Radio", value:"radio"},
+    { name: "Radio", value: "radio" },
   ];
-  
+
   let channels = [];
   // Whenever the bandwidth field changes, update the available channels
   $: {
@@ -129,15 +138,19 @@
   function cleanBoolean(value: boolean): string {
     return value ? "True" : "False";
   }
+
   function cleanString(value: string): string {
     return `'${value}'`;
   }
+
   function cleanNumber(value: number): string {
     return JSON.stringify(value);
   }
+
   function cleanButActuallyDoNothing(value: string): string {
-    return value
+    return value;
   }
+
   const initialFormValues = {
     conf_name: "",
     receiver: "",
@@ -162,7 +175,7 @@
     "vegas.vpol": "cross",
     notchfilter: "In",
     xcor: false,
-  }
+  };
 
   const cleaners = {
     conf_name: cleanString,
@@ -188,7 +201,7 @@
     swfreq: cleanButActuallyDoNothing,
     notchfilter: cleanString,
     dopplertrackfreq: cleanNumber,
-  }
+  };
   const { form, isValid, data, errors, setField, setFields, reset } =
     createForm({
       onSubmit: (data) => console.log("Submit", data),
@@ -200,13 +213,13 @@
   function handleCopyToClipboard(text: string, message?: string): void {
     const promise = navigator.clipboard.writeText(text);
     promise.then(
-      () => (console.log('Copied to clipboard')),
-      () => console.error('Failed to copy to clipboard')
+      () => console.log("Copied to clipboard"),
+      () => console.error("Failed to copy to clipboard")
     );
   }
 
   function genDummyData() {
-      const _dummyData = {
+    const _dummyData = {
       ...initialFormValues,
       conf_name: "dummy inputs",
       receiver: "Rcvr_340",
@@ -226,20 +239,25 @@
     // TODO: Is there a away to avoid doing this manually?
     document.getElementById("receiver-select").value = _dummyData.receiver;
     document.getElementById("bandwidth-select").value = _dummyData.bandwidth;
-    // TODO: This doesn't work; perhaps some race condition? Works if you click generate button twice
-    console.log("channels", channels)
-    console.log("Setting nchan value to", JSON.stringify(_dummyData.nchan))
+    // TODO: This doesn't work; perhaps some race condition? Works if you click
+    //       generate button twice
+    console.log("channels", channels);
+    console.log("Setting nchan value to", JSON.stringify(_dummyData.nchan));
     document.getElementById("nchan-select").value = "16385";
   }
+
   function genConfigString(data) {
-    const normalizedConfName = data.conf_name.replace(" ", "_")
+    const normalizedConfName = data.conf_name.replace(" ", "_");
     const lines = [];
     Object.entries(data).forEach(([key, value]) => {
-      // TODO: break this logic out into a function, or something else sensible. I guess we'll need some sort
-      //       of dependency tree at some point
+      // TODO: break this logic out into a function, or something else sensible.
+      //       I guess we'll need some sort of dependency tree at some point
       // Do not add conf_name to config
       // Do not add notchfilter unless receiver is L-Band
-      if (key !== "conf_name" && !(key === "notchfilter" && data["receiver"] !== "Rcvr1_2")) {
+      if (
+        key !== "conf_name" &&
+        !(key === "notchfilter" && data["receiver"] !== "Rcvr1_2")
+      ) {
         lines.push(`  "${key}": ${cleaners[key](value)}`);
       }
     });
@@ -248,12 +266,15 @@
 
   let formData = [];
   $: {
-    formData = Object.entries($data).map(([key, value]) => ({[key]: value, "type": typeof(value)}))
+    formData = Object.entries($data).map(([key, value]) => ({
+      [key]: value,
+      type: typeof value,
+    }));
   }
 
   let finalConfigString = "";
   $: {
-    finalConfigString = genConfigString($data)
+    finalConfigString = genConfigString($data);
   }
 </script>
 
@@ -264,19 +285,48 @@
     <div class="col-lg-6">
       <form use:form>
         <ConfigTextField label="Name of the Config section" name="conf_name" />
-        <ConfigSelectField label="Receiver" name="receiver" items={receivers}/>
+        <ConfigSelectField
+          label="Receiver"
+          name="receiver"
+          items="{receivers}"
+        />
         <ConfigNumberField label="# of spectral windows" name="nwin" />
         <ConfigNumberField label="Rest Frequency" name="rest_freq" />
-        <ConfigSelectField label="Bandwidth (MHz)" name="bandwidth" items={bandwidths}/>
-        <ConfigSelectField label="# Channels" name="nchan" items={channels} disabled={!Boolean($data.bandwidth)} />
+        <ConfigSelectField
+          label="Bandwidth (MHz)"
+          name="bandwidth"
+          items="{bandwidths}"
+        />
+        <ConfigSelectField
+          label="# Channels"
+          name="nchan"
+          items="{channels}"
+          disabled="{!Boolean($data.bandwidth)}"
+        />
         <ConfigNumberField label="Integration Time" name="tint" />
-        <ConfigRadioField label="Velocity reference" name="vframe" items={velocityRefs} />
-        <ConfigRadioField label="Specify velocity frame for Doppler shift" name="framevdef" items={framevdefItems} />
+        <ConfigRadioField
+          label="Velocity reference"
+          name="vframe"
+          items="{velocityRefs}"
+        />
+        <ConfigRadioField
+          label="Specify velocity frame for Doppler shift"
+          name="framevdef"
+          items="{framevdefItems}"
+        />
         <ConfigBooleanField label="Use the noise diode" name="use_cal" />
         {#if $data.use_cal}
-          <ConfigRadioField label="Strength of the noise diode" name="noisecal" items={noisecalItems} />
+          <ConfigRadioField
+            label="Strength of the noise diode"
+            name="noisecal"
+            items="{noisecalItems}"
+          />
         {/if}
-        <ConfigRadioField label="Specify polarization state" name="pol" items={polItems} />
+        <ConfigRadioField
+          label="Specify polarization state"
+          name="pol"
+          items="{polItems}"
+        />
         <ConfigBooleanField label="Record Cross polarization" name="xcor" />
         <ConfigTextField label="Observation Type" name="obstype" hidden />
         <ConfigTextField label="Backend." name="backend" hidden />
@@ -288,9 +338,9 @@
         <ConfigTextField label="Notch Filter" name="notchfilter" hidden />
 
         <button type="submit" class="btn btn-primary">Submit</button>
-        <button type="reset" class="btn btn-warning" on:click={reset}
-          >Clear</button
-        >
+        <button type="reset" class="btn btn-warning" on:click="{reset}">
+          Clear
+        </button>
       </form>
     </div>
     <div class="col-lg-3">
@@ -309,22 +359,33 @@
         <h6>Config String</h6>
         {#if $isValid}
           <code><pre>{finalConfigString}</pre></code>
-          <a class="btn btn-primary" type="button" tabindex="0" id="copy-script-to-clipboard-btn" on:click={() => handleCopyToClipboard(finalConfigString)}>Copy to Clipboard</a>
-          <Popover target="copy-script-to-clipboard-btn" placement="top" dismissible> Done! </Popover>
+          <a
+            class="btn btn-primary"
+            type="button"
+            tabindex="0"
+            id="copy-script-to-clipboard-btn"
+            on:click="{() => handleCopyToClipboard(finalConfigString)}"
+          >
+            Copy to Clipboard
+          </a>
+          <Popover
+            target="copy-script-to-clipboard-btn"
+            placement="top"
+            dismissible
+          >
+            Done!
+          </Popover>
         {:else}
-          <p> Complete the form to generate a config string </p>
-          <button class="btn btn-info" id="dummy-data-btn" on:click={genDummyData}>Generate Dummy Data</button>
+          <p>Complete the form to generate a config string</p>
+          <button
+            class="btn btn-info"
+            id="dummy-data-btn"
+            on:click="{genDummyData}"
+          >
+            Generate Dummy Data
+          </button>
         {/if}
       </div>
     </div>
   </div>
 </main>
-
-<style>
-  :global(.error-msg) {
-    width: 100%;
-    margin-top: 0.25rem;
-    font-size: 0.875em;
-    color: #dc3545;
-  }
-</style>
